@@ -1,0 +1,254 @@
+{% extends "feedback/base.html" %}
+
+{% block title %}Customer Feedback Dashboard - Voice of Customer AI{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Customer Feedback Dashboard</h1>
+        <p class="page-subtitle">Review sentiment and customer feedback at a glance.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'feedback:upload' %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-upload me-1"></i> Upload Reviews
+        </a>
+        <a href="{% url 'feedback:insights' %}" class="btn btn-sm btn-primary">
+            <i class="bi bi-file-text me-1"></i> View Insights
+        </a>
+    </div>
+</div>
+
+<!-- Compact Statistics Row -->
+<div class="metrics-row" aria-label="Key Statistics">
+    <div class="metric-cell">
+        <div class="metric-label">Total Reviews</div>
+        <div class="metric-number">{{ total_reviews }}</div>
+        <div class="metric-sub">Recorded feedback</div>
+    </div>
+    <div class="metric-cell">
+        <div class="metric-label">Positive Reviews</div>
+        <div class="metric-number" style="color: var(--sentiment-pos);">{{ pos_count }}</div>
+        <div class="metric-sub">{{ pos_pct }}% of total</div>
+    </div>
+    <div class="metric-cell">
+        <div class="metric-label">Negative Reviews</div>
+        <div class="metric-number" style="color: var(--sentiment-neg);">{{ neg_count }}</div>
+        <div class="metric-sub">{{ neg_pct }}% of total</div>
+    </div>
+    <div class="metric-cell">
+        <div class="metric-label">Neutral Reviews</div>
+        <div class="metric-number" style="color: var(--sentiment-neu);">{{ neu_count|default:0 }}</div>
+        <div class="metric-sub">{{ neu_pct|default:0 }}% of total</div>
+    </div>
+    <div class="metric-cell">
+        <div class="metric-label">Model F1-Score</div>
+        <div class="metric-number" style="color: var(--primary);">
+            {% if metrics and metrics.macro_f1 %}
+                {{ metrics.macro_f1|floatformat:3 }}
+            {% else %}
+                —
+            {% endif %}
+        </div>
+        <div class="metric-sub">Test benchmark</div>
+    </div>
+</div>
+
+<!-- Visualizations & Topics Row (Clean Two-Column Layout) -->
+<div class="row g-4 mb-4">
+    <!-- Sentiment Distribution -->
+    <div class="col-lg-5">
+        <div class="section-block mb-0">
+            <h2 class="section-title">Sentiment Distribution</h2>
+            <p class="section-desc">Overall feedback sentiment breakdown</p>
+            {% if total_reviews > 0 and donut_chart_html %}
+                <div class="d-flex justify-content-center">
+                    {{ donut_chart_html|safe }}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p>No reviews have been uploaded yet.</p>
+                    <a href="{% url 'feedback:upload' %}" class="btn btn-sm btn-outline-primary">Upload a CSV file</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Topics Section -->
+    <div class="col-lg-7">
+        <div class="section-block mb-0">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <div>
+                    <h2 class="section-title">Common Discussion Topics</h2>
+                    <p class="section-desc mb-0">Clustered themes from customer feedback</p>
+                </div>
+                <a href="{% url 'feedback:topics' %}" class="btn btn-sm btn-link text-decoration-none p-0" style="color: var(--primary); font-size: 0.8rem;">All topics &rarr;</a>
+            </div>
+
+            {% if topics_preview %}
+                <div class="table-responsive mt-2">
+                    <table class="table-clean">
+                        <thead>
+                            <tr>
+                                <th>Topic</th>
+                                <th>Keywords</th>
+                                <th>Volume</th>
+                                <th>Sentiment</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cluster in topics_preview %}
+                                <tr>
+                                    <td><strong>{{ cluster.title }}</strong></td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            {% for kw in cluster.keywords %}
+                                                <span class="badge" style="background-color: #F4F6F8; color: var(--text-main); font-weight: normal; font-size: 0.72rem; border: 1px solid var(--border);">{{ kw }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                    <td>{{ cluster.count }} ({{ cluster.percent }}%)</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress flex-grow-1" style="height: 5px; width: 70px; background-color: #EAECEF;">
+                                                <div class="progress-bar" style="width: {{ cluster.positive_pct }}%; background-color: var(--sentiment-pos);"></div>
+                                                <div class="progress-bar" style="width: {{ cluster.negative_pct }}%; background-color: var(--sentiment-neg);"></div>
+                                            </div>
+                                            <span style="font-size: 0.72rem; color: var(--text-muted);">{{ cluster.positive_pct }}% pos</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p>At least 10 reviews are needed to extract topic clusters.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Optional Trends / Product Chart (Shown only when data supports it) -->
+{% if timeline_chart_html or product_chart_html %}
+<div class="row g-4 mb-4 pt-3 border-top">
+    {% if timeline_chart_html %}
+    <div class="col-lg-6">
+        <div class="section-block mb-0">
+            {{ timeline_chart_html|safe }}
+        </div>
+    </div>
+    {% endif %}
+    {% if product_chart_html %}
+    <div class="col-lg-6">
+        <div class="section-block mb-0">
+            {{ product_chart_html|safe }}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Brief Insights Section -->
+{% if brief_insights %}
+<div class="section-block pt-3 border-top">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <div>
+            <h2 class="section-title">Key Observations</h2>
+            <p class="section-desc mb-0">Important patterns detected in analyzed reviews</p>
+        </div>
+        <a href="{% url 'feedback:insights' %}" class="btn btn-sm btn-link text-decoration-none p-0" style="color: var(--primary); font-size: 0.8rem;">Full insights &rarr;</a>
+    </div>
+
+    <div class="row g-3 mt-1">
+        {% for item in brief_insights %}
+            <div class="col-md-4">
+                <div class="p-2 border-start border-2 ps-3" style="border-color: var(--primary) !important;">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="badge" style="background-color: #F0F2F5; color: var(--text-main); font-size: 0.7rem; font-weight: 600;">{{ item.badge }}</span>
+                        <span style="font-size: 0.72rem; color: var(--text-muted);">{{ item.metric }}</span>
+                    </div>
+                    <div class="fw-semibold text-dark" style="font-size: 0.85rem;">{{ item.title }}</div>
+                    <p class="mb-0" style="font-size: 0.8rem; color: var(--text-muted);">{{ item.recommendation }}</p>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Customer Reviews Table -->
+<div class="section-block pt-3 border-top">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+            <h2 class="section-title">Recent Reviews</h2>
+            <p class="section-desc mb-0">Latest analyzed customer feedback</p>
+        </div>
+        <a href="{% url 'feedback:reviews' %}" class="btn btn-sm btn-outline-secondary">View All Reviews</a>
+    </div>
+
+    {% if latest_reviews %}
+        <div class="table-responsive">
+            <table class="table-clean">
+                <thead>
+                    <tr>
+                        <th style="width: 48%;">Review Text</th>
+                        <th>Product</th>
+                        <th>Sentiment</th>
+                        <th>Confidence</th>
+                        <th>Source</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rev in latest_reviews %}
+                        <tr>
+                            <td>
+                                <div style="max-width: 460px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ rev.text }}">
+                                    {{ rev.text }}
+                                </div>
+                            </td>
+                            <td>
+                                {% if rev.product_name %}
+                                    <span>{{ rev.product_name }}</span>
+                                {% else %}
+                                    <span style="color: var(--text-light);">&mdash;</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if rev.predicted_sentiment == 'Positive' %}
+                                    <span class="badge-sentiment badge-sentiment-pos">Positive</span>
+                                {% elif rev.predicted_sentiment == 'Negative' %}
+                                    <span class="badge-sentiment badge-sentiment-neg">Negative</span>
+                                {% else %}
+                                    <span class="badge-sentiment badge-sentiment-neu">Neutral</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span>{{ rev.confidence_percent }}%</span>
+                                    {% if rev.is_low_confidence %}
+                                        <span class="badge-confidence-low" title="Confidence is below 65%">Low</span>
+                                    {% endif %}
+                                </div>
+                                <div class="confidence-bar-wrap">
+                                    <div class="confidence-bar-fill {% if rev.predicted_sentiment == 'Positive' %}pos{% elif rev.predicted_sentiment == 'Negative' %}neg{% else %}neu{% endif %}" style="width: {{ rev.confidence_percent }}%;"></div>
+                                </div>
+                            </td>
+                            <td><span style="color: var(--text-muted); font-size: 0.8rem;">{{ rev.source }}</span></td>
+                            <td><span style="color: var(--text-muted); font-size: 0.8rem;">{{ rev.created_at|date:"M d, H:i" }}</span></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p>No reviews have been uploaded yet.</p>
+            <a href="{% url 'feedback:upload' %}" class="btn btn-sm btn-primary">Upload a CSV file</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

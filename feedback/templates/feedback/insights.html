@@ -1,0 +1,111 @@
+{% extends "feedback/base.html" %}
+
+{% block title %}Business Insights - Voice of Customer AI{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Business Insights</h1>
+        <p class="page-subtitle">Rule-based findings and recommendations from analyzed customer feedback.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i> Print Report
+        </button>
+        <a href="{% url 'feedback:dashboard' %}" class="btn btn-sm btn-primary">
+            <i class="bi bi-arrow-left me-1"></i> Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Summary Row -->
+<div class="metrics-row mb-4">
+    <div class="metric-cell" style="flex: 2;">
+        <div class="metric-label">Executive Summary</div>
+        <div class="fw-semibold text-dark mt-1" style="font-size: 0.95rem;">{{ report.summary }}</div>
+    </div>
+    <div class="metric-cell">
+        <div class="metric-label">Positive Feedback Ratio</div>
+        <div class="metric-number" style="color: {% if report.pos_pct >= 70 %}var(--sentiment-pos){% elif report.neg_pct >= 40 %}var(--sentiment-neg){% else %}var(--primary){% endif %};">
+            {{ report.pos_pct }}%
+        </div>
+        <div class="metric-sub">Satisfaction proportion</div>
+    </div>
+    <div class="metric-cell">
+        <div class="metric-label">Total Analyzed</div>
+        <div class="metric-number">{{ report.total|default:0 }}</div>
+        <div class="metric-sub">Reviews in sample</div>
+    </div>
+</div>
+
+<!-- Decision Support Disclaimer -->
+<div class="alert alert-info d-flex align-items-start gap-2 mb-3">
+    <i class="bi bi-info-circle mt-1"></i>
+    <div>
+        <strong>Decision Support Notice:</strong> Recommendations below are generated deterministically based on sentiment frequencies and topic clustering. Statistical correlations highlight areas of customer concern, but do not prove root cause.
+    </div>
+</div>
+
+<!-- Recommendations Section (Clean List/Panel) -->
+<div class="section-block mb-4">
+    <h2 class="section-title">Actionable Recommendations</h2>
+    <p class="section-desc">Prioritized suggestions derived from feedback patterns</p>
+
+    {% if report.insights %}
+        <div class="d-flex flex-column gap-3">
+            {% for item in report.insights %}
+                <div class="p-3 border-start border-3 ps-3" style="border-color: {% if item.type == 'danger' %}var(--sentiment-neg){% elif item.type == 'success' %}var(--sentiment-pos){% elif item.type == 'warning' %}var(--accent-orange){% else %}var(--primary){% endif %} !important; background-color: #FAFAFC;">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="badge" style="background-color: #ECEFF2; color: var(--text-main); font-size: 0.72rem; font-weight: 600;">
+                            {{ item.badge }}
+                        </span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">{{ item.metric }}</span>
+                    </div>
+
+                    <h3 class="h6 fw-semibold text-dark mb-1">{{ item.title }}</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">
+                        {{ item.finding }}
+                    </p>
+
+                    <div class="pt-2 border-top" style="border-color: var(--border-light) !important; font-size: 0.85rem;">
+                        <strong style="color: var(--text-main);">Suggested Action:</strong>
+                        <span style="color: var(--text-main);">{{ item.recommendation }}</span>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p>No feedback data available to generate insights.</p>
+            <a href="{% url 'feedback:upload' %}" class="btn btn-sm btn-primary">Upload Reviews</a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Supporting Topic Context Section -->
+{% if topics %}
+    <div class="section-block pt-3 border-top">
+        <h2 class="section-title">Topics Informing Current Insights</h2>
+        <p class="section-desc">Extracted discussion themes across analyzed reviews</p>
+
+        <div class="row g-3">
+            {% for t in topics %}
+                <div class="col-md-6 col-lg-3">
+                    <div class="p-2 border-start border-2 ps-2" style="border-color: var(--primary) !important; background-color: #FAFAFC;">
+                        <div class="fw-semibold text-dark text-truncate mb-1" style="font-size: 0.8rem;">{{ t.title }}</div>
+                        <div class="d-flex justify-content-between mb-1" style="font-size: 0.72rem; color: var(--text-muted);">
+                            <span>{{ t.count }} reviews</span>
+                            <span>{{ t.percent }}% of total</span>
+                        </div>
+                        <div class="progress" style="height: 4px; background-color: #EAECEF;">
+                            <div class="progress-bar" style="width: {{ t.positive_pct }}%; background-color: var(--sentiment-pos);"></div>
+                            <div class="progress-bar" style="width: {{ t.negative_pct }}%; background-color: var(--sentiment-neg);"></div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

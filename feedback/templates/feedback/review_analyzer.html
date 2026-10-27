@@ -1,0 +1,162 @@
+{% extends "feedback/base.html" %}
+
+{% block title %}Analyse a Review - Voice of Customer AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Analyse a Review</h1>
+                <p class="page-subtitle">Test single review sentiment classification using the trained model.</p>
+            </div>
+            <a href="{% url 'feedback:dashboard' %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Dashboard
+            </a>
+        </div>
+
+        <!-- Single Review Input Form -->
+        <div class="section-block mb-4">
+            <h2 class="section-title">Review Input</h2>
+            <p class="section-desc">Enter customer review text below to classify its sentiment.</p>
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label for="{{ form.text.id_for_label }}" class="form-label">
+                        {{ form.text.label }}
+                    </label>
+                    {{ form.text }}
+                    {% if form.text.help_text %}
+                        <div class="form-text mt-1">{{ form.text.help_text }}</div>
+                    {% endif %}
+                    {% for error in form.text.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.product_name.id_for_label }}" class="form-label">
+                        {{ form.product_name.label }}
+                    </label>
+                    {{ form.product_name }}
+                    {% for error in form.product_name.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="d-flex justify-content-end">
+                    <button type="submit" class="btn btn-primary">
+                        Analyse Review
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Prediction Result (Clean Section) -->
+        {% if result %}
+            <div class="section-block pt-3 border-top mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <h2 class="section-title">Analysis Result</h2>
+                        <p class="section-desc mb-0">Predicted sentiment and model confidence</p>
+                    </div>
+                    <div>
+                        {% if result.sentiment == 'Positive' %}
+                            <span class="badge-sentiment badge-sentiment-pos fs-6">Positive</span>
+                        {% elif result.sentiment == 'Negative' %}
+                            <span class="badge-sentiment badge-sentiment-neg fs-6">Negative</span>
+                        {% else %}
+                            <span class="badge-sentiment badge-sentiment-neu fs-6">Neutral</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="p-3 mb-3 border-start border-2 ps-3" style="border-color: var(--primary) !important; background-color: #FAFAFC; font-style: italic; color: var(--text-main);">
+                    "{{ result.text }}"
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-sm-6">
+                        <div class="metric-label">Prediction Confidence</div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="h4 fw-bold mb-0" style="color: var(--text-main);">{{ result.confidence_percent }}%</span>
+                            {% if result.is_low_confidence %}
+                                <span class="badge-confidence-low">Low Confidence (&lt;65%)</span>
+                            {% endif %}
+                        </div>
+                        <div class="confidence-bar-wrap" style="width: 100%; height: 6px;">
+                            <div class="confidence-bar-fill {% if result.sentiment == 'Positive' %}pos{% elif result.sentiment == 'Negative' %}neg{% else %}neu{% endif %}" style="width: {{ result.confidence_percent }}%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="col-sm-6">
+                        <div class="metric-label">Class Probabilities</div>
+                        <div class="py-1" style="font-size: 0.85rem;">
+                            <div class="d-flex justify-content-between py-1 border-bottom">
+                                <span>Positive:</span>
+                                <strong>{{ result.probabilities.Positive|default:0|floatformat:3 }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between py-1">
+                                <span>Negative:</span>
+                                <strong>{{ result.probabilities.Negative|default:0|floatformat:3 }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if result.is_low_confidence %}
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <strong>Notice:</strong> This prediction has lower confidence (&lt;65%). Sarcastic or mixed phrasing may affect certainty.
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <!-- Recent Interactive Analyses -->
+        {% if recent_single %}
+            <div class="section-block pt-3 border-top">
+                <h2 class="section-title">Recently Analysed Feedback</h2>
+                <p class="section-desc">Saved single review analyses</p>
+
+                <div class="table-responsive">
+                    <table class="table-clean">
+                        <thead>
+                            <tr>
+                                <th>Review Text</th>
+                                <th>Sentiment</th>
+                                <th>Confidence</th>
+                                <th>Analysed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rev in recent_single %}
+                                <tr>
+                                    <td>
+                                        <div style="max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ rev.text }}">
+                                            {{ rev.text }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if rev.predicted_sentiment == 'Positive' %}
+                                            <span class="badge-sentiment badge-sentiment-pos">Positive</span>
+                                        {% elif rev.predicted_sentiment == 'Negative' %}
+                                            <span class="badge-sentiment badge-sentiment-neg">Negative</span>
+                                        {% else %}
+                                            <span class="badge-sentiment badge-sentiment-neu">Neutral</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ rev.confidence_percent }}%</td>
+                                    <td><span style="color: var(--text-muted); font-size: 0.8rem;">{{ rev.created_at|timesince }} ago</span></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

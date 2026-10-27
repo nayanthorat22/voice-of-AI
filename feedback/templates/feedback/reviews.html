@@ -1,0 +1,163 @@
+{% extends "feedback/base.html" %}
+
+{% block title %}All Reviews - Voice of Customer AI{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">All Reviews</h1>
+        <p class="page-subtitle">Search, filter, and inspect customer feedback entries.</p>
+    </div>
+    <div>
+        <a href="{% url 'feedback:upload' %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-upload me-1"></i> Upload Reviews
+        </a>
+    </div>
+</div>
+
+<!-- Compact Filter Strip -->
+<div class="filter-strip">
+    <form method="get" class="row g-2 align-items-center">
+        <div class="col-md-5">
+            <input type="text" name="q" class="form-control form-control-sm" placeholder="Search review text or product..." value="{{ query }}">
+        </div>
+
+        <div class="col-md-3">
+            <select name="sentiment" class="form-select form-select-sm">
+                <option value="">All Sentiments</option>
+                <option value="Positive" {% if sentiment_filter == 'Positive' %}selected{% endif %}>Positive</option>
+                <option value="Negative" {% if sentiment_filter == 'Negative' %}selected{% endif %}>Negative</option>
+                <option value="Neutral" {% if sentiment_filter == 'Neutral' %}selected{% endif %}>Neutral</option>
+            </select>
+        </div>
+
+        {% if available_products %}
+        <div class="col-md-2">
+            <select name="product" class="form-select form-select-sm">
+                <option value="">All Products</option>
+                {% for prod in available_products %}
+                    <option value="{{ prod }}" {% if product_filter == prod %}selected{% endif %}>{{ prod }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="col-md-2 d-flex gap-1">
+            <button type="submit" class="btn btn-sm btn-primary w-100">Filter</button>
+            {% if query or sentiment_filter or product_filter or batch_filter %}
+                <a href="{% url 'feedback:reviews' %}" class="btn btn-sm btn-outline-secondary" title="Reset Filters"><i class="bi bi-x"></i></a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- Reviews Table Section -->
+<div class="section-block">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span style="font-size: 0.8rem; color: var(--text-muted);">
+            Showing {{ page_obj.start_index|default:0 }} &ndash; {{ page_obj.end_index|default:0 }} of {{ total_filtered }} reviews
+        </span>
+    </div>
+
+    {% if page_obj.object_list %}
+        <div class="table-responsive">
+            <table class="table-clean">
+                <thead>
+                    <tr>
+                        <th style="width: 48%;">Review Text</th>
+                        <th>Product</th>
+                        <th>Sentiment</th>
+                        <th>Confidence</th>
+                        <th>Date</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rev in page_obj %}
+                        <tr>
+                            <td>
+                                <div style="line-height: 1.45;">{{ rev.text }}</div>
+                            </td>
+                            <td>
+                                {% if rev.product_name %}
+                                    <span>{{ rev.product_name }}</span>
+                                {% else %}
+                                    <span style="color: var(--text-light);">&mdash;</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if rev.predicted_sentiment == 'Positive' %}
+                                    <span class="badge-sentiment badge-sentiment-pos">Positive</span>
+                                {% elif rev.predicted_sentiment == 'Negative' %}
+                                    <span class="badge-sentiment badge-sentiment-neg">Negative</span>
+                                {% else %}
+                                    <span class="badge-sentiment badge-sentiment-neu">Neutral</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span>{{ rev.confidence_percent }}%</span>
+                                    {% if rev.is_low_confidence %}
+                                        <span class="badge-confidence-low" title="Prediction confidence is below 65%">Low</span>
+                                    {% endif %}
+                                </div>
+                                <div class="confidence-bar-wrap">
+                                    <div class="confidence-bar-fill {% if rev.predicted_sentiment == 'Positive' %}pos{% elif rev.predicted_sentiment == 'Negative' %}neg{% else %}neu{% endif %}" style="width: {{ rev.confidence_percent }}%;"></div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if rev.review_date %}
+                                    <span style="color: var(--text-muted); font-size: 0.8rem;">{{ rev.review_date|date:"Y-m-d" }}</span>
+                                {% else %}
+                                    <span style="color: var(--text-light); font-size: 0.8rem;">&mdash;</span>
+                                {% endif %}
+                            </td>
+                            <td><span style="color: var(--text-muted); font-size: 0.8rem;">{{ rev.source }}</span></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Clean Pagination -->
+        {% if page_obj.has_other_pages %}
+            <nav class="mt-3 pt-3 border-top d-flex justify-content-center" aria-label="Review pagination">
+                <ul class="pagination pagination-sm mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ query }}&sentiment={{ sentiment_filter }}&product={{ product_filter }}">Previous</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active"><span class="page-link" style="background-color: var(--primary); border-color: var(--primary);">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}&q={{ query }}&sentiment={{ sentiment_filter }}&product={{ product_filter }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ query }}&sentiment={{ sentiment_filter }}&product={{ product_filter }}">Next</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">Next</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+
+    {% else %}
+        <div class="empty-state">
+            <p>No customer reviews match your filter criteria.</p>
+            <a href="{% url 'feedback:upload' %}" class="btn btn-sm btn-primary">Upload Reviews</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

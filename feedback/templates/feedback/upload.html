@@ -1,0 +1,118 @@
+{% extends "feedback/base.html" %}
+
+{% block title %}Upload Reviews - Voice of Customer AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Upload Reviews</h1>
+                <p class="page-subtitle">Upload a CSV file of customer feedback for batch sentiment analysis.</p>
+            </div>
+            <a href="{% url 'feedback:reviews' %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> All Reviews
+            </a>
+        </div>
+
+        <!-- Form Section -->
+        <div class="section-block mb-4">
+            <h2 class="section-title">Select CSV File</h2>
+            <p class="section-desc">File should contain customer feedback rows.</p>
+
+            <form method="post" enctype="multipart/form-data" novalidate>
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label for="{{ form.csv_file.id_for_label }}" class="form-label">
+                        {{ form.csv_file.label }}
+                    </label>
+                    {{ form.csv_file }}
+                    {% if form.csv_file.help_text %}
+                        <div class="form-text mt-1">{{ form.csv_file.help_text }}</div>
+                    {% endif %}
+                    {% for error in form.csv_file.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <!-- CSV Schema Instructions -->
+                <div class="p-3 mb-3 border-start border-2 ps-3" style="border-color: var(--primary) !important; background-color: #FAFAFC;">
+                    <div class="fw-semibold mb-1" style="font-size: 0.8rem; color: var(--text-main);">
+                        Supported Columns
+                    </div>
+                    <ul class="mb-0 ps-3" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.6;">
+                        <li><strong>Review Text (Required):</strong> Named <code>review</code>, <code>text</code>, <code>content</code>, or <code>review_text</code>.</li>
+                        <li><strong>Product Name (Optional):</strong> Named <code>product</code> or <code>product_name</code>.</li>
+                        <li><strong>Date (Optional):</strong> Named <code>date</code> or <code>review_date</code> (YYYY-MM-DD format).</li>
+                        <li><strong>True Sentiment (Optional):</strong> Named <code>sentiment</code> or <code>label</code>.</li>
+                    </ul>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% url 'feedback:dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload me-1"></i> Upload and Process
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Upload History Section -->
+        <div class="section-block pt-3 border-top">
+            <h2 class="section-title">Upload History</h2>
+            <p class="section-desc">Previously uploaded review batches</p>
+
+            {% if recent_batches %}
+                <div class="table-responsive">
+                    <table class="table-clean">
+                        <thead>
+                            <tr>
+                                <th>Batch ID</th>
+                                <th>Filename</th>
+                                <th>Processed</th>
+                                <th>Status</th>
+                                <th>Uploaded At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b in recent_batches %}
+                                <tr>
+                                    <td>#{{ b.id }}</td>
+                                    <td>{{ b.filename }}</td>
+                                    <td>{{ b.processed_reviews }} / {{ b.total_rows }}</td>
+                                    <td>
+                                        {% if b.status == 'COMPLETED' %}
+                                            <span class="badge-sentiment badge-sentiment-pos">Completed</span>
+                                        {% elif b.status == 'PROCESSING' %}
+                                            <span class="badge-sentiment badge-sentiment-neu">Processing</span>
+                                        {% elif b.status == 'FAILED' %}
+                                            <span class="badge-sentiment badge-sentiment-neg" title="{{ b.error_message }}">Failed</span>
+                                        {% else %}
+                                            <span class="badge-sentiment badge-sentiment-neu">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><span style="color: var(--text-muted); font-size: 0.8rem;">{{ b.created_at|date:"M d, Y H:i" }}</span></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p>No upload history yet.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

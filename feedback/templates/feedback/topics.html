@@ -1,0 +1,138 @@
+{% extends "feedback/base.html" %}
+
+{% block title %}Topic Analysis - Voice of Customer AI{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Topic Analysis</h1>
+        <p class="page-subtitle">Identify recurring customer discussion themes using TF-IDF and K-Means clustering.</p>
+    </div>
+
+    <!-- Cluster Count Form -->
+    <form method="get" class="d-flex align-items-center gap-2">
+        <label for="clusterSelect" class="form-label mb-0" style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">Clusters (k):</label>
+        <select name="k" id="clusterSelect" class="form-select form-select-sm" onchange="this.form.submit()">
+            {% for i in "2345678" %}
+                <option value="{{ i }}" {% if k|stringformat:"s" == i %}selected{% endif %}>{{ i }} Topics</option>
+            {% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn btn-sm btn-primary">Update</button></noscript>
+    </form>
+</div>
+
+<!-- Method explanation -->
+<div class="alert alert-info d-flex align-items-start gap-2 mb-3">
+    <i class="bi bi-info-circle mt-1"></i>
+    <div>
+        <strong>About Topic Modeling:</strong> Topics group reviews based on shared vocabulary using K-Means clustering. Keywords shown are approximations of common discussion points.
+    </div>
+</div>
+
+{% if warning %}
+    <div class="section-block text-center py-4">
+        <div class="empty-state">
+            <h2 class="h5 fw-bold text-dark">Insufficient Data for Topic Clustering</h2>
+            <p>{{ warning }}</p>
+            <a href="{% url 'feedback:upload' %}" class="btn btn-sm btn-primary">Upload Reviews CSV</a>
+        </div>
+    </div>
+{% else %}
+    <!-- Topics Table Section -->
+    <div class="section-block mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <h2 class="section-title">Discovered Clusters (k={{ k }})</h2>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">{{ total_reviews }} analyzed reviews</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table-clean">
+                <thead>
+                    <tr>
+                        <th style="width: 20%;">Topic</th>
+                        <th style="width: 25%;">Keywords</th>
+                        <th style="width: 15%;">Reviews</th>
+                        <th style="width: 20%;">Sentiment Breakdown</th>
+                        <th style="width: 20%;">Sample Review</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cluster in clusters %}
+                        <tr>
+                            <td>
+                                <div class="fw-semibold text-dark">{{ cluster.title }}</div>
+                                <span style="font-size: 0.72rem; color: var(--text-muted);">Cluster #{{ cluster.id|add:1 }}</span>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for word in cluster.keywords %}
+                                        <span class="badge" style="background-color: #F4F6F8; color: var(--text-main); border: 1px solid var(--border); font-size: 0.72rem; font-weight: normal;">{{ word }}</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td>
+                                <div><strong>{{ cluster.count }}</strong> reviews</div>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">{{ cluster.percent }}% of total</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <div class="progress flex-grow-1" style="height: 5px; background-color: #EAECEF;">
+                                        <div class="progress-bar" style="width: {{ cluster.positive_pct }}%; background-color: var(--sentiment-pos);"></div>
+                                        <div class="progress-bar" style="width: {{ cluster.negative_pct }}%; background-color: var(--sentiment-neg);"></div>
+                                    </div>
+                                </div>
+                                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                                    <span style="color: var(--sentiment-pos); font-weight: 600;">{{ cluster.positive_pct }}% pos</span> / 
+                                    <span style="color: var(--sentiment-neg); font-weight: 600;">{{ cluster.negative_pct }}% neg</span>
+                                </div>
+                            </td>
+                            <td>
+                                {% with sample=cluster.sample_reviews|first %}
+                                    {% if sample %}
+                                        <div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ sample.text }}">
+                                            "{{ sample.text }}"
+                                        </div>
+                                    {% else %}
+                                        <span style="color: var(--text-light);">&mdash;</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Cluster Exemplars Section -->
+    <div class="section-block pt-3 border-top">
+        <h2 class="section-title">Sample Quotes by Topic</h2>
+        <p class="section-desc">Representative feedback from each topic cluster</p>
+
+        <div class="row g-3">
+            {% for cluster in clusters %}
+                <div class="col-md-6">
+                    <div class="p-3 border-start border-2 ps-3" style="border-color: var(--primary) !important; background-color: #FAFAFC;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-semibold text-dark" style="font-size: 0.85rem;">{{ cluster.title }}</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">{{ cluster.count }} reviews</span>
+                        </div>
+                        <ul class="list-unstyled mb-0 d-flex flex-column gap-2">
+                            {% for sample in cluster.sample_reviews %}
+                                <li class="p-2 border-bottom" style="font-size: 0.8rem; border-color: var(--border-light) !important;">
+                                    <div class="mb-1 text-dark" style="line-height: 1.4;">"{{ sample.text }}"</div>
+                                    <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
+                                        <span class="{% if sample.sentiment == 'Positive' %}text-success{% else %}text-danger{% endif %} fw-semibold">{{ sample.sentiment }}</span>
+                                        <span style="color: var(--text-muted);">{{ sample.confidence }}% confidence</span>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,26 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django & SQLite
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# ML Artifacts and large raw datasets
+artifacts/*.joblib
+data/*.csv
+!data/.gitkeep
+!artifacts/.gitkeep
+
+# Environment & IDE
+.env
+.DS_Store
+.vscode/
+.idea/
+*.log
